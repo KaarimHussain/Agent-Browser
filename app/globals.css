@@ -1,26 +1,264 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Background - warm off-white like Claude */
+  --background: #fcfbf9;
+  --foreground: #2d2d2d;
+
+  /* Cards and surfaces */
+  --card: #ffffff;
+  --card-foreground: #2d2d2d;
+
+  /* Primary - Supabase green with softer tone */
+  --primary: #3ecf8e;
+  --primary-foreground: #ffffff;
+  --primary-soft: #d4f7e8;
+
+  /* Secondary - warm grays */
+  --secondary: #f5f4f1;
+  --secondary-foreground: #4a4a4a;
+
+  /* Muted */
+  --muted: #f0efe9;
+  --muted-foreground: #8a8986;
+
+  /* Accent - soft teal */
+  --accent: #e8f8f3;
+  --accent-foreground: #1a7f64;
+
+  /* Destructive - soft coral */
+  --destructive: #ff6b6b;
+  --destructive-foreground: #ffffff;
+
+  /* Borders - subtle warm gray */
+  --border: #e8e6e1;
+  --input: #e8e6e1;
+
+  /* Ring - soft primary glow */
+  --ring: rgba(62, 207, 142, 0.4);
+
+  /* Radius - smooth and rounded */
+  --radius: 1rem;
+
+  /* Shadows - soft and diffused like Claude */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Dark mode - warm dark like Claude */
+    --background: #1a1918;
+    --foreground: #ecebe6;
+
+    --card: #232220;
+    --card-foreground: #ecebe6;
+
+    --primary: #3ecf8e;
+    --primary-foreground: #1a1918;
+    --primary-soft: rgba(62, 207, 142, 0.15);
+
+    --secondary: #2a2927;
+    --secondary-foreground: #c9c8c4;
+
+    --muted: #2a2927;
+    --muted-foreground: #8a8986;
+
+    --accent: rgba(62, 207, 142, 0.12);
+    --accent-foreground: #6ee7b7;
+
+    --destructive: #ff8a8a;
+    --destructive-foreground: #1a1918;
+
+    --border: #32312e;
+    --input: #32312e;
+
+    --ring: rgba(62, 207, 142, 0.3);
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.25);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.3);
+    --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.35);
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-heading: var(--font-dm-sans);
+  --font-body: var(--font-inter);
   --font-mono: var(--font-geist-mono);
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: var(--border);
+  font-family: var(--font-body);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Headings use DM Sans */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading), system-ui, -apple-system, sans-serif;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+/* Custom scrollbar - subtle and smooth */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+
+/* Smooth fade-in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.chat-message {
+  animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Soft gradient background for header */
+.header-gradient {
+  background: linear-gradient(180deg,
+      var(--background) 0%,
+      rgba(255, 255, 255, 0) 100%);
+}
+
+@media (prefers-color-scheme: dark) {
+  .header-gradient {
+    background: linear-gradient(180deg,
+        var(--background) 0%,
+        rgba(26, 25, 24, 0) 100%);
+  }
+}
+
+/* Glass effect */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+@media (prefers-color-scheme: dark) {
+  .glass {
+    background: rgba(35, 34, 32, 0.7);
+  }
+}
+
+/* Soft shadow utility */
+.shadow-soft {
+  box-shadow: var(--shadow-md);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, var(--primary) 0%, #2dd4bf 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Screenshot filmstrip */
+.filmstrip-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.filmstrip-scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+/* Loading shimmer */
+.shimmer {
+  background: linear-gradient(90deg,
+      var(--secondary) 0%,
+      var(--muted) 50%,
+      var(--secondary) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
 }

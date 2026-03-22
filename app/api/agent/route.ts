@@ -45,10 +45,11 @@ WORKFLOW FOR EVERY TASK:
 RULES FOR "done" action:
 - NEVER use done immediately after a screenshot
 - You MUST call read_page first to extract actual content
-- The "result" field MUST contain specific information from the page
-  e.g. "Karachi weather: 32°C, Sunny, Humidity 65%, Wind 12km/h"
-  NOT just "Successfully searched for Karachi Weather"
-- If read_page did not return useful data, take another screenshot and try read_page again
+- The "result" field MUST contain a STRUCTURED SUMMARY of all your findings.
+- EXAMPLES of good "result" data:
+  "Weather in Karachi: 32°C, Sunny, Humidity 65%. 3-day forecast: Mon 33°C, Tue 31°C."
+  "Top 3 Trending JS Repos: 1. next.js (120k stars), 2. tailwindcss (80k stars), 3. lucide (20k stars)."
+- NEVER just say "Task completed successfully" or "I found the info". BE SPECIFIC.
 `;
 
 // Get LLM response based on provider

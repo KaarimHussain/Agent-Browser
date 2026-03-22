@@ -73,8 +73,32 @@ export async function initBrowser() {
 }
 
 export async function navigateTo(url: string) {
-  await page!.goto(url);
-  await page!.waitForLoadState("networkidle");
+  try {
+    // 1. Try to go to the URL and wait for the 'load' event first (standard wait)
+    await page!.goto(url, { waitUntil: "load", timeout: 25000 });
+  } catch (error: any) {
+    if (error.message.includes("Timeout")) {
+      // 2. If full load takes too long, fall back to 'domcontentloaded' which is usually enough
+      try {
+        await page!.goto(url, { waitUntil: "domcontentloaded", timeout: 15000 });
+      } catch (e: any) {
+        // 3. Last resort: just wait for the commit (header received)
+        await page!.goto(url, { waitUntil: "commit", timeout: 10000 });
+      }
+    } else {
+      throw error;
+    }
+  }
+
+  // Mandatory 2s grace period for client-side rendering (React/Vue sites)
+  await page!.waitForTimeout(2000);
+  
+  // Try waiting for network idle in the background
+  try {
+    await page!.waitForLoadState("networkidle", { timeout: 5000 });
+  } catch {
+    // Ignore timeout
+  }
 }
 
 export async function clickElement(selector: string) {
@@ -82,7 +106,11 @@ export async function clickElement(selector: string) {
   try {
     const locator = resolveLocator(cleaned);
     await locator.click({ timeout: 5000 });
-    await page!.waitForLoadState("networkidle");
+    try {
+      await page!.waitForLoadState("networkidle", { timeout: 6000 });
+    } catch {
+      // Ignore networkidle timeout after a click
+    }
   } catch (e) {
     throw new Error(
       `Could not click "${selector}". Use get_accessibility_tree to find the correct role and name, then use format: role=button[name="exact name from tree"]`
@@ -108,12 +136,25 @@ export async function takeScreenshot(): Promise<string> {
 }
 
 export async function readPageText(): Promise<string> {
-  const text = await page!.innerText("body");
+  // If the page is empty, wait up to 5s for content to appear
+  let text = (await page!.innerText("body")).trim();
+  if (text.length < 10) {
+    await page!.waitForTimeout(3000);
+    text = (await page!.innerText("body")).trim();
+  }
   return text.length > 6000 ? text.slice(0, 6000) + "..." : text;
 }
 
 export async function getAccessibilityTree(): Promise<string> {
-  const snapshot = await page!.locator("body").ariaSnapshot();
+  // Wait for body to be visible/present
+  await page!.waitForSelector("body", { timeout: 5000 });
+  
+  let snapshot = await page!.locator("body").ariaSnapshot();
+  // If snapshot is basically empty, wait a bit for hydration
+  if (snapshot.length < 50) {
+    await page!.waitForTimeout(3000);
+    snapshot = await page!.locator("body").ariaSnapshot();
+  }
   return snapshot.length > 4000 ? snapshot.slice(0, 4000) + "..." : snapshot;
 }
 

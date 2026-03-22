@@ -1,22 +1,21 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { Sheet } from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
-type Log = {
-  type: string;
-  message: string;
-  time: string;
-};
+// Components
+import { Header } from "@/components/agent/Header";
+import { TaskHistory } from "@/components/agent/TaskHistory";
+import { AgentMemory } from "@/components/agent/AgentMemory";
+import { WelcomeScreen } from "@/components/agent/WelcomeScreen";
+import { AgentDashboard } from "@/components/agent/AgentDashboard";
+import { InputArea } from "@/components/agent/InputArea";
 
-type HistoryItem = {
-  id: number;
-  task: string;
-  result: string;
-  timestamp: string;
-  stepCount: number;
-};
+// Types
+import { Log, HistoryItem, Provider } from "@/components/agent/types";
 
-// localStorage helpers (all wrapped in try/catch)
+// Utils
 function loadFromStorage<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key);
@@ -29,9 +28,7 @@ function loadFromStorage<T>(key: string, fallback: T): T {
 function saveToStorage(key: string, value: unknown) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    /* storage full or unavailable */
-  }
+  } catch { }
 }
 
 function loadStringFromStorage(key: string, fallback: string): string {
@@ -45,9 +42,7 @@ function loadStringFromStorage(key: string, fallback: string): string {
 function saveStringToStorage(key: string, value: string) {
   try {
     localStorage.setItem(key, value);
-  } catch {
-    /* storage full or unavailable */
-  }
+  } catch { }
 }
 
 export default function Home() {
@@ -57,39 +52,30 @@ export default function Home() {
   const [screenshots, setScreenshots] = useState<string[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [isDone, setIsDone] = useState(false);
-  const logsEndRef = useRef<HTMLDivElement>(null);
 
-  // Provider/model state
-  const [provider, setProvider] = useState("ollama");
+  const [provider, setProvider] = useState<Provider>("ollama");
   const [ollamaModel, setOllamaModel] = useState("gemma3:latest");
   const [groqModel, setGroqModel] = useState("llama-3.3-70b-versatile");
 
-  // Task history
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
-  // Agent memory
   const [memory, setMemory] = useState("");
-  const [showMemory, setShowMemory] = useState(false);
-  const memoryFacts = memory
-    .split("\n")
-    .filter((l) => l.trim().length > 0);
+  const [memoryOpen, setMemoryOpen] = useState(false);
+  const memoryFacts = memory.split("\n").filter((l) => l.trim().length > 0);
 
-  // Load from localStorage on mount
   useEffect(() => {
     setHistory(loadFromStorage<HistoryItem[]>("agent_history", []));
     setMemory(loadStringFromStorage("agent_memory", ""));
   }, []);
-
-  useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [logs]);
 
   const currentModel = provider === "groq" ? groqModel : ollamaModel;
 
   const runTask = async () => {
     if (!task.trim() || isRunning) return;
 
+    const userTask = task;
+    setTask("");
     setLogs([]);
     setScreenshot(null);
     setScreenshots([]);
@@ -99,7 +85,7 @@ export default function Home() {
     const response = await fetch("/api/agent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ task, provider, model: currentModel, memory }),
+      body: JSON.stringify({ task: userTask, provider, model: currentModel, memory }),
     });
 
     const reader = response.body!.getReader();
@@ -125,12 +111,10 @@ export default function Home() {
             setScreenshot(data.message);
             setScreenshots((prev) => [...prev, data.message]);
           } else if (data.type === "memory_update") {
-            // Append to memory (max 500 chars)
             setMemory((prev) => {
               const newFact = data.message;
               let updated = prev ? prev + "\n" + newFact : newFact;
               if (updated.length > 500) {
-                // Trim oldest lines until under 500
                 const lines = updated.split("\n");
                 while (updated.length > 500 && lines.length > 1) {
                   lines.shift();
@@ -154,11 +138,10 @@ export default function Home() {
           if (data.type === "done") {
             setIsRunning(false);
             setIsDone(true);
-            // Save to history
             setLogs((currentLogs) => {
               const item: HistoryItem = {
                 id: Date.now(),
-                task,
+                task: userTask,
                 result: data.message,
                 timestamp: new Date().toLocaleString(),
                 stepCount: currentLogs.length + 1,
@@ -168,7 +151,6 @@ export default function Home() {
               setHistory(updated);
               return [...currentLogs, { type: data.type, message: data.message, time: new Date().toLocaleTimeString() }];
             });
-            // Skip the normal setLogs below since we handled it inside
             continue;
           }
 
@@ -184,24 +166,272 @@ export default function Home() {
     setIsRunning(false);
   };
 
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    if (isRunning || isDone) {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [logs, isRunning, isDone]);
+
   const exportResult = () => {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const lines = [
-      `Task: ${task}`,
-      `Timestamp: ${new Date().toLocaleString()}`,
-      `Provider: ${provider} / ${currentModel}`,
-      "",
-      "=== LOG ===",
-      ...logs.map((l) => `[${l.time}] [${l.type}] ${l.message}`),
-      "",
-      "=== RESULT ===",
-      logs.find((l) => l.type === "done")?.message ?? "(no result)",
-    ];
-    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+    const timestamp = new Date().toLocaleString();
+    const finalResult = logs.find((l) => l.type === "done")?.message ?? "No structured result captured.";
+    const reportTitle = `Browser Agent Execution Report`;
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${reportTitle}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --background: #1a1918;
+            --foreground: #ecebe6;
+            --card: #232220;
+            --card-foreground: #ecebe6;
+            --primary: #3ecf8e;
+            --primary-soft: rgba(62, 207, 142, 0.15);
+            --secondary: #2a2927;
+            --secondary-foreground: #c9c8c4;
+            --muted: #2a2927;
+            --muted-foreground: #8a8986;
+            --border: #32312e;
+            --radius: 1rem;
+            --font-heading: "DM Sans", system-ui, sans-serif;
+            --font-body: "Inter", system-ui, sans-serif;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--background);
+            color: var(--foreground);
+            line-height: 1.6;
+            margin: 0;
+            padding: 60px 20px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: left;
+            margin-bottom: 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 20px;
+        }
+
+        .header-left h1 {
+            font-family: var(--font-heading);
+            font-size: 2.25rem;
+            margin: 0 0 8px 0;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, var(--primary) 0%, #2dd4bf 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .badge {
+            background: var(--primary-soft);
+            color: var(--primary);
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            display: inline-block;
+            margin-bottom: 12px;
+        }
+
+        .section {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 40px;
+            margin-bottom: 40px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+        }
+
+        .section-title {
+            font-family: var(--font-heading);
+            font-size: 1rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--primary);
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 30px;
+        }
+
+        .summary-item label {
+            display: block;
+            color: var(--muted-foreground);
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+        }
+
+        .summary-item p {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        .result-box {
+            background: var(--primary-soft);
+            border: 1px solid var(--primary);
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .result-text {
+            font-size: 1.25rem;
+            font-weight: 500;
+            color: var(--foreground);
+            white-space: pre-wrap;
+            margin: 0;
+        }
+
+        .log-entry {
+            display: grid;
+            grid-template-columns: 100px 100px 1fr;
+            gap: 20px;
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+
+        .log-time { color: var(--muted-foreground); font-family: monospace; }
+        .log-type { font-weight: 800; text-transform: uppercase; font-size: 0.7rem; }
+
+        .timeline {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .screenshot-wrap {
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            background: var(--background);
+        }
+
+        .screenshot-wrap img { width: 100%; display: block; }
+        .screenshot-info { padding: 12px; text-align: center; font-size: 0.8rem; color: var(--muted-foreground); }
+
+        .final-img {
+            width: 100%;
+            border-radius: 12px;
+            margin-top: 25px;
+            border: 1px solid var(--border);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <span class="badge">Session Audit</span>
+                <h1>Browser Agent Report</h1>
+                <p style="color: var(--muted-foreground); margin:0;">Target: ${task}</p>
+            </div>
+            <div style="text-align: right; color: var(--muted-foreground); font-size: 0.8rem;">
+                Generated: ${timestamp}
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Final Conclusion</div>
+            <div class="result-box">
+                <p class="result-text">${finalResult}</p>
+            </div>
+            ${screenshot ? `<img src="data:image/png;base64,${screenshot}" class="final-img" />` : ""}
+        </div>
+
+        <div class="section">
+            <div class="section-title">Execution Overview</div>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <label>Configuration</label>
+                    <p style="text-transform: capitalize;">${provider} / ${currentModel.split('/')[0]}</p>
+                </div>
+                <div class="summary-item">
+                    <label>Activity</label>
+                    <p>${logs.length} Operations</p>
+                </div>
+                <div class="summary-item">
+                    <label>Visual Evidence</label>
+                    <p>${screenshots.length} Captures</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Visual Timeline</div>
+            <div class="timeline">
+                ${screenshots.map((ss, i) => `
+                    <div class="screenshot-wrap">
+                        <img src="data:image/png;base64,${ss}" />
+                        <div class="screenshot-info">Step ${i + 1} Visual</div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Chronological Audit</div>
+            <div>
+                ${logs.map(log => `
+                    <div class="log-entry">
+                        <div class="log-time">${log.time}</div>
+                        <div class="log-type" style="color: ${log.type === 'error' ? '#ff6b6b' : log.type === 'action' ? '#3ecf8e' : 'inherit'}">${log.type}</div>
+                        <div class="log-message">${log.message}</div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+
+        <p style="text-align: center; color: var(--muted-foreground); font-size: 0.8rem; margin-top: 60px; font-family: monospace;">
+            AUDIT_ID: ${Math.random().toString(36).substring(7).toUpperCase()} | END_OF_REPORT
+        </p>
+    </div>
+</body>
+</html>
+    `;
+
+    const blob = new Blob([htmlContent], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `agent-result-${timestamp}.txt`;
+    a.download = `agent-report-${new Date().toISOString().slice(0, 10)}.html`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -216,284 +446,88 @@ export default function Home() {
     saveStringToStorage("agent_memory", "");
   };
 
-  const logColor: Record<string, string> = {
-    start: "text-purple-400",
-    thinking: "text-yellow-400",
-    reasoning: "text-gray-400 italic",
-    action: "text-blue-400 font-semibold",
-    result: "text-gray-300",
-    done: "text-green-400 font-semibold",
-    error: "text-red-400",
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    runTask();
   };
 
   return (
-    <main className="min-h-screen bg-gray-950 text-white p-6 font-sans">
-      <div className="flex gap-4 max-w-[1600px] mx-auto">
-        {/* ─── SIDEBAR: Past Tasks ─── */}
-        <div
-          className={`shrink-0 transition-all duration-300 ${showHistory ? "w-72" : "w-10"
-            }`}
-        >
-          <button
-            onClick={() => setShowHistory(!showHistory)}
-            className="w-10 h-10 flex items-center justify-center bg-gray-800 border border-gray-700 rounded-lg hover:bg-gray-700 transition text-lg"
-            title={showHistory ? "Collapse history" : "Show past tasks"}
-          >
-            {showHistory ? "◀" : "📋"}
-          </button>
+    <div className="flex h-screen bg-background text-foreground selection:bg-primary/20 overflow-hidden">
+      {/* History Sidebar */}
+      <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
+        <TaskHistory
+          history={history}
+          setTask={setTask}
+          closeHistory={() => setHistoryOpen(false)}
+          clearHistory={clearHistory}
+        />
+      </Sheet>
 
-          {showHistory && (
-            <div className="mt-2 bg-gray-900 border border-gray-800 rounded-xl p-3 h-[calc(100vh-120px)] overflow-y-auto">
-              <p className="text-xs text-gray-500 uppercase tracking-widest mb-3 font-semibold">
-                Past Tasks
-              </p>
-              {history.length === 0 && (
-                <p className="text-gray-600 text-xs text-center mt-8">
-                  No history yet
-                </p>
-              )}
-              {history.map((h, index) => (
-                <button
-                  key={index}
-                  onClick={() => setTask(h.task)}
-                  className="w-full text-left mb-2 p-2 bg-gray-800 hover:bg-gray-750 border border-gray-700 rounded-lg transition group"
-                >
-                  <p className="text-sm text-gray-200 truncate group-hover:text-white">
-                    {h.task}
-                  </p>
-                  <div className="flex justify-between mt-1 text-xs text-gray-500">
-                    <span>{h.timestamp}</span>
-                    <span>{h.stepCount} steps</span>
-                  </div>
-                </button>
-              ))}
-              {history.length > 0 && (
-                <button
-                  onClick={clearHistory}
-                  className="w-full mt-2 py-1.5 text-xs text-red-400 border border-red-400/30 rounded-lg hover:bg-red-400/10 transition"
-                >
-                  Clear History
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+      {/* Memory Sheet */}
+      <Sheet open={memoryOpen} onOpenChange={setMemoryOpen}>
+        <AgentMemory
+          memoryFacts={memoryFacts}
+          memoryLength={memory.length}
+          clearMemory={clearMemory}
+        />
+      </Sheet>
 
-        {/* ─── MAIN CONTENT ─── */}
-        <div className="flex-1 min-w-0">
-          {/* Header */}
-          <div className="text-center mb-6">
-            <h1 className="text-3xl font-bold mb-1">🤖 Browser Agent</h1>
-            <p className="text-gray-500 text-sm">
-              Ollama + Groq · Playwright + Next.js
-            </p>
-          </div>
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 relative">
+        <Header
+          provider={provider}
+          setProvider={setProvider}
+          ollamaModel={ollamaModel}
+          setOllamaModel={setOllamaModel}
+          groqModel={groqModel}
+          setGroqModel={setGroqModel}
+          memoryCount={memoryFacts.length}
+          onOpenHistory={() => setHistoryOpen(true)}
+          onOpenMemory={() => setMemoryOpen(true)}
+        />
 
-          {/* Provider / Model Selector */}
-          <div className="flex gap-3 mb-4 items-center">
-            <div className="flex bg-gray-800 border border-gray-700 rounded-xl overflow-hidden">
-              <button
-                onClick={() => setProvider("ollama")}
-                className={`px-4 py-2 text-sm font-medium transition ${provider === "ollama"
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-400 hover:text-white"
-                  }`}
-              >
-                🦙 Ollama (Local)
-              </button>
-              <button
-                onClick={() => setProvider("groq")}
-                className={`px-4 py-2 text-sm font-medium transition ${provider === "groq"
-                  ? "bg-green-600 text-white"
-                  : "text-gray-400 hover:text-white"
-                  }`}
-              >
-                ⚡ Groq (Fast)
-              </button>
-            </div>
-
-            {provider === "ollama" ? (
-              <input
-                className="bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm w-48
-                           placeholder-gray-500 focus:outline-none focus:border-blue-500 transition"
-                placeholder="Model name"
-                value={ollamaModel}
-                onChange={(e) => setOllamaModel(e.target.value)}
-              />
+        {/* Chat Area */}
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="max-w-6xl mx-auto px-4 py-8">
+            {logs.length === 0 && !isRunning ? (
+              <WelcomeScreen onSelectSuggestion={(t) => setTask(t)} />
             ) : (
-              <select
-                className="bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm
-                           focus:outline-none focus:border-green-500 transition"
-                value={groqModel}
-                onChange={(e) => setGroqModel(e.target.value)}
-              >
-                <option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile</option>
-                <option value="llama3-70b-8192">llama3-70b-8192</option>
-                <option value="mixtral-8x7b-32768">mixtral-8x7b-32768</option>
-              </select>
-            )}
-
-            {/* Memory indicator */}
-            <button
-              onClick={() => setShowMemory(true)}
-              className="ml-auto px-3 py-2 bg-gray-800 border border-gray-700 rounded-xl text-sm hover:bg-gray-700 transition"
-              title="View agent memory"
-            >
-              🧠 Memory{memoryFacts.length > 0 && ` (${memoryFacts.length})`}
-            </button>
-          </div>
-
-          {/* Task Input */}
-          <div className="flex gap-3 mb-6">
-            <input
-              className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-3
-                         placeholder-gray-500 focus:outline-none focus:border-blue-500 transition"
-              placeholder='Try: "Search Google for weather in Karachi"'
-              value={task}
-              onChange={(e) => setTask(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && runTask()}
-              disabled={isRunning}
-            />
-            <button
-              onClick={runTask}
-              disabled={isRunning}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700
-                         disabled:cursor-not-allowed rounded-xl font-medium transition-colors min-w-[120px]"
-            >
-              {isRunning ? (
-                <span className="flex items-center gap-2 justify-center">
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Running
-                </span>
-              ) : (
-                "Run Task"
-              )}
-            </button>
-            {isDone && !isRunning && (
-              <button
-                onClick={exportResult}
-                className="px-4 py-3 bg-emerald-600 hover:bg-emerald-700 rounded-xl font-medium transition-colors text-sm"
-              >
-                📥 Export
-              </button>
-            )}
-          </div>
-
-          {/* Split View */}
-          <div className="grid grid-cols-2 gap-4">
-            {/* Agent Log */}
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 h-[520px] overflow-y-auto">
-              <p className="text-xs text-gray-500 uppercase tracking-widest mb-4 font-semibold">
-                Agent Log
-              </p>
-              {logs.length === 0 && (
-                <p className="text-gray-600 text-sm text-center mt-24">
-                  Waiting for task...
-                </p>
-              )}
-              {logs.map((log, i) => (
-                <div key={i} className="mb-1.5 text-sm font-mono flex gap-2">
-                  <span className="text-gray-600 shrink-0">{log.time}</span>
-                  <span className={logColor[log.type] ?? "text-gray-400"}>
-                    {log.message}
-                  </span>
-                </div>
-              ))}
-              <div ref={logsEndRef} />
-            </div>
-
-            {/* Live Screenshot + Filmstrip */}
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 h-[520px] flex flex-col">
-              <p className="text-xs text-gray-500 uppercase tracking-widest mb-4 font-semibold">
-                Live Browser View
-              </p>
-              {screenshot ? (
-                <img
-                  src={`data:image/png;base64,${screenshot}`}
-                  alt="Browser"
-                  className="rounded-lg w-full flex-1 object-contain object-top min-h-0"
-                />
-              ) : (
-                <div className="flex-1 flex items-center justify-center border border-dashed border-gray-700 rounded-lg">
-                  <p className="text-gray-600 text-sm">
-                    Screenshot appears here when agent looks at the page
-                  </p>
-                </div>
-              )}
-
-              {/* Filmstrip */}
-              {screenshots.length > 1 && (
-                <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-                  {screenshots.map((ss, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setScreenshot(ss)}
-                      className={`shrink-0 relative rounded border-2 transition ${screenshot === ss
-                        ? "border-blue-500"
-                        : "border-gray-700 hover:border-gray-500"
-                        }`}
-                    >
-                      <img
-                        src={`data:image/png;base64,${ss}`}
-                        alt={`Step ${i + 1}`}
-                        className="w-20 h-[50px] object-cover rounded"
-                      />
-                      <span className="absolute bottom-0 right-0 bg-black/70 text-[10px] px-1 rounded-tl text-gray-300">
-                        {i + 1}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ─── MEMORY MODAL ─── */}
-      {showMemory && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-lg mx-4">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">🧠 Agent Memory</h2>
-              <button
-                onClick={() => setShowMemory(false)}
-                className="text-gray-400 hover:text-white text-xl"
-              >
-                ✕
-              </button>
-            </div>
-            {memoryFacts.length === 0 ? (
-              <p className="text-gray-500 text-sm text-center py-8">
-                No memories stored yet. The agent learns facts after completing
-                tasks.
-              </p>
-            ) : (
-              <div className="space-y-2 max-h-60 overflow-y-auto">
-                {memoryFacts.map((fact, i) => (
-                  <div
-                    key={i}
-                    className="bg-gray-800 rounded-lg p-2 text-sm text-gray-300"
-                  >
-                    {fact}
+              <div className="space-y-6">
+                {/* User Message */}
+                <div className="chat-message flex justify-end mb-2">
+                  <div className="bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-6 py-3 max-w-[80%] shadow-lg shadow-primary/10 border border-primary/20">
+                    <p className="text-sm font-medium leading-relaxed">{task || "Previous task"}</p>
                   </div>
-                ))}
+                </div>
+
+                {/* Agent Response Dashboard */}
+                <div className="chat-message flex justify-start animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <AgentDashboard
+                    logs={logs}
+                    isRunning={isRunning}
+                    isDone={isDone}
+                    screenshot={screenshot}
+                    screenshots={screenshots}
+                    setScreenshot={setScreenshot}
+                    exportResult={exportResult}
+                  />
+                </div>
+                
+                {/* Anchor for auto-scroll */}
+                <div ref={chatEndRef} className="h-4" />
               </div>
             )}
-            <div className="flex justify-between mt-4">
-              <span className="text-xs text-gray-500">
-                {memory.length}/500 chars
-              </span>
-              <button
-                onClick={clearMemory}
-                className="px-3 py-1 text-xs text-red-400 border border-red-400/30 rounded-lg hover:bg-red-400/10 transition"
-              >
-                Clear Memory
-              </button>
-            </div>
           </div>
-        </div>
-      )}
-    </main>
+        </ScrollArea>
+
+        {/* Input Area */}
+        <InputArea
+          task={task}
+          setTask={setTask}
+          isRunning={isRunning}
+          onSubmit={handleSubmit}
+        />
+      </div>
+    </div>
   );
 }
