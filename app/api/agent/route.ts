@@ -45,7 +45,7 @@ WORKFLOW FOR EVERY TASK:
 RULES FOR "done" action:
 - NEVER use done immediately after a screenshot
 - You MUST call read_page first to extract actual content
-- The "result" field MUST contain a STRUCTURED SUMMARY of all your findings.
+- The "result" field MUST contain a detailed TEXTUAL summary of all your findings. Include specific data like prices, names, and status of forms.
 - EXAMPLES of good "result" data:
   "Weather in Karachi: 32°C, Sunny, Humidity 65%. 3-day forecast: Mon 33°C, Tue 31°C."
   "Top 3 Trending JS Repos: 1. next.js (120k stars), 2. tailwindcss (80k stars), 3. lucide (20k stars)."
@@ -215,6 +215,13 @@ export async function POST(req: NextRequest) {
               break;
 
             case "done":
+              // Final capture for visual confirmation
+              try {
+                const finalScreenshot = await takeScreenshot();
+                push("screenshot", finalScreenshot);
+              } catch {
+                // Ignore if browser already disconnected
+              }
               push("done", `✅ ${action.result}`);
               push("memory_update", action.result || "");
               await closeBrowser();

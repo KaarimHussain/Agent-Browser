@@ -5,7 +5,9 @@ export const ActionSchema = z.object({
   url: z.string().optional(),
   selector: z.string().optional(),
   text: z.string().optional(),
-  result: z.string().optional(),
+  result: z.any().optional().transform((val) => 
+    val === undefined ? undefined : (typeof val === 'object' ? JSON.stringify(val, null, 2) : String(val))
+  ),
   key: z.string().optional(),
   reasoning: z.string().optional(),
 });
@@ -23,7 +25,7 @@ export const ActionJsonSchema = {
     url: { type: "string" },
     selector: { type: "string" },
     text: { type: "string" },
-    result: { type: "string" },
+    result: { description: "Final textual summary or structured findings" },
     key: { type: "string" },
     reasoning: { type: "string" },
   },

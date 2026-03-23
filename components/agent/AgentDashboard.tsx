@@ -76,7 +76,7 @@ export function AgentDashboard({
       <div className="flex flex-col md:flex-row gap-2 h-[calc(100vh-320px)] min-h-[450px] max-h-[650px]">
         
         {/* Logs Section */}
-        <div className="flex-1 flex flex-col bg-secondary/20 rounded-[1.5rem] border border-border/50 overflow-hidden">
+        <div className="flex-1 flex flex-col min-h-0 bg-secondary/20 rounded-[1.5rem] border border-border/50 overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-border/50 bg-secondary/30">
             <FileText className="w-4 h-4 text-primary" />
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Logs</span>
@@ -122,7 +122,7 @@ export function AgentDashboard({
         </div>
 
         {/* Preview Section */}
-        <div className="flex-1 flex flex-col bg-secondary/20 rounded-[1.5rem] border border-border/50 overflow-hidden">
+        <div className="flex-1 flex flex-col min-h-0 bg-secondary/20 rounded-[1.5rem] border border-border/50 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 bg-secondary/30">
             <div className="flex items-center gap-2">
               <Eye className="w-4 h-4 text-primary" />
@@ -167,7 +167,7 @@ export function AgentDashboard({
 
         {/* History Sidebar (Inside Card) */}
         {screenshots.length > 0 && (
-          <div className="w-full md:w-32 flex flex-col bg-card/40 border-l border-border/50 p-3 gap-3">
+          <div className="w-full md:w-32 flex flex-col min-h-0 bg-card/40 border-l border-border/50 p-3 gap-3">
             <div className="flex items-center justify-center gap-1 mt-1">
               <Layers className="w-3 h-3 text-muted-foreground" />
               <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest text-center">History</span>
