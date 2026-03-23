@@ -3,10 +3,10 @@
 import { useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  FileText, 
-  Eye, 
-  Download, 
+import {
+  FileText,
+  Eye,
+  Download,
   PlayCircle,
   Loader2,
   Zap,
@@ -74,9 +74,9 @@ export function AgentDashboard({
   return (
     <div className="bg-card border border-border rounded-[2rem] rounded-tl-sm p-2 w-full shadow-2xl shadow-primary/5 overflow-hidden">
       <div className="flex flex-col md:flex-row gap-2 h-[calc(100vh-320px)] min-h-[450px] max-h-[650px]">
-        
+
         {/* Logs Section */}
-        <div className="flex-1 flex flex-col min-h-0 bg-secondary/20 rounded-[1.5rem] border border-border/50 overflow-hidden">
+        <div className="flex-1 flex flex-col min-h-0 bg-secondary/20 rounded-[1.5rem] border border-border/50 overflow-y-scroll">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-border/50 bg-secondary/30">
             <FileText className="w-4 h-4 text-primary" />
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Logs</span>
@@ -145,9 +145,9 @@ export function AgentDashboard({
                   className="w-full h-full object-contain"
                 />
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <Button 
-                    variant="secondary" 
-                    size="sm" 
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     className="rounded-full shadow-lg"
                     onClick={() => window.open(`data:image/png;base64,${screenshot}`, '_blank')}
                   >
@@ -179,8 +179,8 @@ export function AgentDashboard({
                     key={i}
                     onClick={() => setScreenshot(ss)}
                     className={`shrink-0 relative rounded-xl border-2 transition-all duration-300 overflow-hidden group hover:scale-105 ${screenshot === ss
-                        ? "border-primary shadow-xl shadow-primary/20 ring-4 ring-primary/10"
-                        : "border-border/50 hover:border-primary/40 shadow-sm"
+                      ? "border-primary shadow-xl shadow-primary/20 ring-4 ring-primary/10"
+                      : "border-border/50 hover:border-primary/40 shadow-sm"
                       }`}
                   >
                     <img
@@ -189,8 +189,8 @@ export function AgentDashboard({
                       className="w-full h-16 md:h-20 object-cover"
                     />
                     <div className={`absolute bottom-1 right-1 text-[10px] w-5 h-5 rounded-lg flex items-center justify-center shadow-lg font-bold border ${screenshot === ss
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-background/80 text-foreground border-border group-hover:bg-primary group-hover:text-primary-foreground"
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background/80 text-foreground border-border group-hover:bg-primary group-hover:text-primary-foreground"
                       }`}>
                       {i + 1}
                     </div>
@@ -233,7 +233,7 @@ export function AgentDashboard({
             {screenshots.length} visual steps captured
           </p>
         </div>
-        
+
         {isDone && !isRunning && (
           <div className="flex-1 flex justify-center">
             <Button

@@ -117,7 +117,12 @@ export async function POST(req: NextRequest) {
           push("thinking", "🤔 Thinking...");
 
           const rawAction = await getLLMResponse(provider, model, messages);
-          const parsed = JSON.parse(rawAction);
+          let parsed = JSON.parse(rawAction);
+
+          // ✅ Handle scenarios where model returns an array of actions instead of a single object
+          if (Array.isArray(parsed)) {
+            parsed = parsed[0] || {};
+          }
 
           // ✅ Fallback if model skips reasoning field
           if (!parsed.reasoning) parsed.reasoning = "No reasoning provided";
